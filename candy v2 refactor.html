@@ -1,0 +1,388 @@
+<!--
+	This is a fork of original candy v1-->
+
+	<!DOCTYPE html>
+	<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width">
+		<title>Operaton Candy</title>
+	</head>
+	<body style="margin: 0px;">
+	<!--	<span>__i0___i1____i2___i3____i4___i5___i6____i7____i8___i9</span><br>-->
+		<canvas style="display: inline-block;cursor: pointer;margin: 10px;" id="canvas" width="400" height="400" style="background: #ddd;"></canvas>
+	<!--	<span style="position: absolute;line-height: 13px;">
+			<br>j9<br><br><br>j8<br><br><br>j7<br><br><br>j6<br><br><br>j5<br><br><br>j4<br><br><br>j3<br><br><br><br>j2<br><br><br>j1<br><br><br>j0
+		</span>
+		<span id="text" style="float: right;background: grey; width: 38%;">?</span>
+	-->
+	<hr>
+		Rows: <input type="number" id="rows" placeholder="12" style="width: 60px;">
+		Columns: <input type="number" id="colms" placeholder="12" style="width: 60px;">
+		<br>
+		Number of Colors: <input type="number" id="colors" placeholder="1-5" style="width: 60px;">
+		<br>
+		<button id="create">Create</button>
+		
+		<script type="text/javascript">
+
+
+//Declaration
+let canvas = document.querySelector("#canvas");
+let textBox = document.querySelector("#text");
+let ctx = canvas.getContext("2d");
+
+
+
+//Constants
+const GAMEWIDTH = canvas.width;
+const GAMEHEIGHT = canvas.height;
+const COLORS = ["rgba(213,0,0,",
+"rgba(118,255,3,",
+"rgba(0,229,255,",
+"rgba(255,193,7,",
+"rgba(98,0,234,"];
+const BLOCKSSTATE = {
+	FALLING: 0,
+	DISAPPEARING: 1,
+	SETTLED: 2,
+	DISAPPEARED: 3,
+	IDLE: 4
+}
+
+//NOT USED yet
+const GAMESTATE = {
+	RUNNING: 0,
+	PAUSED: 1,
+	MENU: 2,
+	SETTINGS: 3,
+	OVER: 4,
+	COMPLETE: 5
+}
+
+//Event Listeners
+
+//draw_lines.addEventListener('click', drawLines);
+//delete_blocks.addEventListener('click', removeBlocks);
+
+//fill_blocks_array.addEventListener('click', fillBlocksArray);
+//draw_all_blocks.addEventListener('click', drawAllBlocks);
+
+//canvas.addEventListener('mousemove', blockFocused);
+//canvas.addEventListener('mouseleave', blockUnfocused);
+
+class Game{
+	constructor(gamewidth, gameheight, rows=12, colms=12, colors=4){
+		this.gamewidth = gamewidth;
+		this.gameheight = gameheight;
+
+		this.noOfCols = colms;
+		this.noOfRows = rows;
+		this.noOfColors = colors;
+
+
+		this.unitWidth = this.gamewidth/this.noOfCols;
+		this.unitHeight = this.gameheight/this.noOfRows;
+
+		this.blocksstate = BLOCKSSTATE.FALLING;
+		//blocks Array 
+		//2d array filled with blocksObj{color: null, toBeRemoved: false,inCorrectPosition: false} , [[{obj0}],[{obj1}],[{obj2}],...]
+		this.blocks = [];
+		//fill blocks array
+		for(let i = 0;i<this.noOfCols;i++) this.blocks[i] = [];
+			this.fillBlocks();
+		this.matchesDetector = new MatchesDetection(this);
+	}
+
+	draw(ctx){
+		//A Light background
+		ctx.beginPath();
+		ctx.fillStyle = "#ccc";
+		ctx.rect(0,0,GAMEWIDTH,GAMEHEIGHT);
+		ctx.fill();
+		ctx.closePath();
+
+		//draw all blocks
+		this.blocks.forEach((colm,colmIndex)=>{
+			colm.forEach((block,rowIndex)=>block.draw(ctx,colmIndex,rowIndex))
+		});
+	}
+
+	update(){
+		if(this.blocksstate==BLOCKSSTATE.FALLING){
+			this.blocksstate = BLOCKSSTATE.SETTLED;
+			this.blocks.forEach((colm,colmIndex)=>{
+				colm.forEach((block,rowIndex)=>{
+					let updated = block.fallUpdate(colmIndex,rowIndex);
+					if(updated) this.blocksstate = BLOCKSSTATE.FALLING;
+				})
+			});
+		}
+
+		if(this.blocksstate==BLOCKSSTATE.SETTLED){
+			let areMatchesPresent = this.matchesDetector.tripletDetection();
+			if(areMatchesPresent){
+				this.matchesDetector.markForRemoval();
+				this.blocksstate=BLOCKSSTATE.DISAPPEARING;
+			}
+			else{
+				this.blocksstate = BLOCKSSTATE.IDLE;
+			}
+
+		}
+
+		if(this.blocksstate==BLOCKSSTATE.DISAPPEARING){
+			this.blocks.forEach((colm,colmIndex)=>{
+				colm.forEach((block,rowIndex)=>{
+					if(block.markedForRemoval){
+						let removed = block.removalUpdate(colmIndex,rowIndex);
+						if(removed) this.blocksstate = BLOCKSSTATE.DISAPPEARED;	
+					}
+				})
+			});
+
+			if(this.blocksstate == BLOCKSSTATE.DISAPPEARED){
+				console.log("when is this called");
+				this.removeBlocks();
+				console.log(this.blocks);
+				this.fillBlocks();
+				console.log(this.blocks);
+				this.blocksstate = BLOCKSSTATE.FALLING;
+			}
+		}
+	}
+
+	removeBlocks(){	//remove blocks from array
+		for(let i = 0;i<this.noOfCols;i++){
+			this.blocks[i] = this.blocks[i].filter(block => !block.markedForRemoval);
+		}
+	}
+
+	fillBlocks(){
+		
+		for(var i = 0;i < this.noOfCols;i++){
+			let blocklen = this.blocks[i].length;
+			for(var j = blocklen;j < this.noOfRows;j++){
+				let col = this.randomColor(COLORS);
+				this.blocks[i][j] = new Block(this, col, j-blocklen);
+			}
+		}
+	}
+
+	drawLines(ctx){
+		ctx.lineWidth = Math.min(this.unitWidth,this.unitHeight)/4;
+
+		this.matchesDetector.Matches.forEach(match=>{
+			switch(match.dir){
+				case 'H':
+				ctx.beginPath();
+				ctx.moveTo((match.I+0.5)*this.unitWidth,this.gameheight-(match.J+0.5)*this.unitHeight);
+				ctx.lineTo((match.I+match.len-0.5)*this.unitWidth,this.gameheight-(match.J+0.5)*this.unitHeight);
+				ctx.stroke();
+				break;
+
+				case 'V':
+				ctx.beginPath();
+				ctx.moveTo((match.I+0.5)*this.unitWidth,this.gameheight-(match.J+0.5)*this.unitHeight);
+				ctx.lineTo((match.I+0.5)*this.unitWidth,this.gameheight-(match.J+match.len-0.5)*this.unitHeight);
+				ctx.stroke();
+				break;
+			}	
+		})
+	}
+
+
+	randomColor(COLORS){
+	return COLORS[Math.floor(Math.random()*this.noOfColors)];
+}
+}
+
+class Block{	//Single block object
+	constructor(game, color, j){
+		this.game = game;
+		this.color = color;
+		this.markedForRemoval = false;
+		this.opacity = 1;
+		this.isFocused = false;
+		//this.focusedBlock_I = -1;	//value -1 if no block in focus
+		//this.focusedBlock_J = -1;	//value -1 if no block in focus
+
+		//There is no position parameter as it keeps changing. So, it is defined bt the blocks array
+
+		//This is not equal to actual final postion.
+		//Just for transistion processses up to down
+		this.currentPosY = -(j+1)*this.game.unitHeight;
+	}
+	
+	draw(ctx,i,j){
+		/*Arrangement is like this
+		(i0,j2)  (i1,j2)  (i2,j2)
+		(i0,j1)  (i1,j1)  (i2,j1)
+		(i0,j0)  (i1,j0)  (i2,j0)*/
+		ctx.beginPath();
+		ctx.fillStyle = this.color + this.opacity+")";
+		ctx.lineWidth = 1;
+		//ctx.rect(i*this.game.unitWidth,(this.game.gameheight - (j+1)*this.game.unitHeight),this.game.unitWidth,this.game.unitHeight);
+		ctx.rect(i*this.game.unitWidth,this.currentPosY,this.game.unitWidth,this.game.unitHeight);
+		ctx.fill();
+		ctx.stroke();
+		ctx.closePath();
+	}
+
+	fallUpdate(i,j){
+		
+		let finalPosY = this.game.gameheight - (j+1)*this.game.unitHeight;
+		if(finalPosY>this.currentPosY){
+			this.currentPosY +=5;
+			if(finalPosY<this.currentPosY) this.currentPosY = finalPosY;
+			return true;
+		}
+		
+		else return false;
+	}
+
+	removalUpdate(i,j){
+		if(this.opacity>0){
+			this.opacity -= 0.02;
+			return false;
+		}
+		else return true;
+	}
+}
+
+class MatchesDetection{
+	constructor(game){
+		this.game = game;
+		this.Matches = []; //1d array of obj{i: 0,j: 0,len: 3, direction: "H"} , [{obj0},{obj1},{obj2},...]
+	}
+
+	tripletDetection(){
+		this.Matches = [];
+		for(var i = 0;i < this.game.noOfCols;i++){
+			for(var j = 0;j < this.game.noOfRows;j++){
+				let lenH = this.HorMatchLen(i,j);
+				let lenV = this.VerMatchLen(i,j);
+				if(lenH>=3){
+					this.Matches.push({I: i,J: j,len: lenH, dir: "H"});
+					console.log(JSON.stringify(this.Matches[this.Matches.length-1]));
+				}
+				if(lenV>=3){
+					this.Matches.push({I: i,J: j,len: lenV, dir: "V"});
+					console.log(JSON.stringify(this.Matches[this.Matches.length-1]));
+				}
+
+
+			}
+		}
+		if(this.Matches.length==0) return false;
+
+		return true;	//REturns true is matches are present
+	}
+
+	markForRemoval(){
+		this.Matches.forEach(match=>{
+			switch(match.dir){
+				case 'H':
+				for(let i = 0;i<match.len;i++){
+					this.game.blocks[match.I+i][match.J].markedForRemoval = true;
+				}
+				break;
+				case 'V':
+				for(let j = 0;j<match.len;j++){
+					this.game.blocks[match.I][match.J+j].markedForRemoval = true;
+				}
+				break;
+			}	
+		});
+	}
+
+
+	HorMatchLen(i,j){
+		if(i!=0 && this.game.blocks[i-1][j].color == this.game.blocks[i][j].color)
+		return null; //block is already in a previous triplet/quadr/tetraplet
+
+		//ELSE count
+		let len = 1;
+		for(let k = i+1;k<this.game.noOfCols;k++){
+			if(this.game.blocks[k][j].color == this.game.blocks[i][j].color)
+				len++;
+			else break;
+		}
+		return len;
+	}
+
+	VerMatchLen(i,j){
+		if(j!=0 && this.game.blocks[i][j-1].color == this.game.blocks[i][j].color)
+		return null; //block is already in a previus triplet/quadr/tetraplet
+
+		//ELSE count
+		let len = 1;
+		for(let k = j+1;k<this.game.noOfRows;k++){
+			if(this.game.blocks[i][k].color == this.game.blocks[i][j].color)
+				len++;
+			else break;
+		}
+		return len;	
+	}
+}
+
+
+
+
+/*
+function blockFocused(e){
+	let i1 = parseInt(e.offsetX/unitWidth);
+	let j1 = parseInt((GAMEHEIGHT-e.offsetY)/unitHeight);
+	//console.log(e.offsetX+","+e.offsetY);
+	if(focusedBlock_I!=i1 || focusedBlock_J!=j1)
+	{
+		if(focusedBlock_I!=-1){
+			// Redraw OLD block as it is out of focus
+			drawBlock(focusedBlock_I,focusedBlock_J);
+		//	drawMapp(focusedBlock_I,focusedBlock_J);
+	}
+		//focus the NEW block
+		focusedBlock_I = i1;
+		focusedBlock_J = j1;
+		drawBlockFocus(focusedBlock_I,focusedBlock_J);	
+	}
+
+}
+
+function blockUnfocused(e){
+	drawBlock(focusedBlock_I,focusedBlock_J);
+	//drawMapp(focusedBlock_I,focusedBlock_J);
+	focusedBlock_I = -1,focusedBlock_J = -1;
+}
+
+function drawBlockFocus(i,j){
+	ctx.beginPath();
+	ctx.fillStyle = "rgba(0,0,0,0.5)";
+	ctx.rect(i*unitWidth,(GAMEHEIGHT - (j+1)*unitHeight),unitWidth,unitHeight);
+	ctx.fill();
+	ctx.stroke();
+	ctx.closePath();
+}
+*/
+let stopper;
+let game = new Game(GAMEWIDTH,GAMEHEIGHT);
+requestAnimationFrame(animate);
+
+function animate(){
+	ctx.clearRect(0,0,GAMEWIDTH,GAMEHEIGHT);
+	game.draw(ctx);
+	game.update();
+	stopper = requestAnimationFrame(animate);
+	//console.log("HIi");
+}
+
+
+create.addEventListener('click',()=>{
+	cancelAnimationFrame(stopper);
+	game = new Game(GAMEWIDTH,GAMEHEIGHT, parseInt(rows.value), parseInt(colms.value), parseInt(colors.value));
+
+	requestAnimationFrame(animate);
+});
+</script>
+</body>
+</html>
