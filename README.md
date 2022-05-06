@@ -1,2 +1,2 @@
 # CandyCurse
-same as CandyCrush, but worse
+Same as CandyCrush, but worse.
