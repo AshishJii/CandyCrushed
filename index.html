@@ -9,7 +9,7 @@
 		<title>Operaton Candy</title>
 	</head>
 	<body style="margin: 0px;">
-	<!--	<span>__i0___i1____i2___i3____i4___i5___i6____i7____i8___i9</span><br>-->
+		<!--	<span>__i0___i1____i2___i3____i4___i5___i6____i7____i8___i9</span><br>-->
 		<canvas style="display: inline-block;cursor: pointer;margin: 10px;" id="canvas" width="400" height="400" style="background: #ddd;"></canvas>
 	<!--	<span style="position: absolute;line-height: 13px;">
 			<br>j9<br><br><br>j8<br><br><br>j7<br><br><br>j6<br><br><br>j5<br><br><br>j4<br><br><br>j3<br><br><br><br>j2<br><br><br>j1<br><br><br>j0
@@ -17,14 +17,14 @@
 		<span id="text" style="float: right;background: grey; width: 38%;">?</span>
 	-->
 	<hr>
-		Rows: <input type="number" id="rows" placeholder="12" style="width: 60px;">
-		Columns: <input type="number" id="colms" placeholder="12" style="width: 60px;">
-		<br>
-		Number of Colors: <input type="number" id="colors" placeholder="1-5" style="width: 60px;">
-		<br>
-		<button id="create">Create</button>
-		
-		<script type="text/javascript">
+	Rows: <input type="number" id="rows" placeholder="12" style="width: 60px;">
+	Columns: <input type="number" id="colms" placeholder="12" style="width: 60px;">
+	<br>
+	Number of Colors: <input type="number" id="colors" placeholder="1-5" style="width: 60px;">
+	<br>
+	<button id="create">Create</button>
+
+	<script type="text/javascript">
 
 
 //Declaration
@@ -60,17 +60,6 @@ const GAMESTATE = {
 	COMPLETE: 5
 }
 
-//Event Listeners
-
-//draw_lines.addEventListener('click', drawLines);
-//delete_blocks.addEventListener('click', removeBlocks);
-
-//fill_blocks_array.addEventListener('click', fillBlocksArray);
-//draw_all_blocks.addEventListener('click', drawAllBlocks);
-
-//canvas.addEventListener('mousemove', blockFocused);
-//canvas.addEventListener('mouseleave', blockUnfocused);
-
 class Game{
 	constructor(gamewidth, gameheight, rows=12, colms=12, colors=4){
 		this.gamewidth = gamewidth;
@@ -88,10 +77,13 @@ class Game{
 		//blocks Array 
 		//2d array filled with blocksObj{color: null, toBeRemoved: false,inCorrectPosition: false} , [[{obj0}],[{obj1}],[{obj2}],...]
 		this.blocks = [];
+
+		this.focusedBlock = null;
 		//fill blocks array
 		for(let i = 0;i<this.noOfCols;i++) this.blocks[i] = [];
 			this.fillBlocks();
 		this.matchesDetector = new MatchesDetection(this);
+		new InputHandler(this);
 	}
 
 	draw(ctx){
@@ -106,6 +98,15 @@ class Game{
 		this.blocks.forEach((colm,colmIndex)=>{
 			colm.forEach((block,rowIndex)=>block.draw(ctx,colmIndex,rowIndex))
 		});
+
+		if(this.focusedBlock!=null){
+			ctx.beginPath();
+			ctx.fillStyle = "rgba(0,0,0,0.5)";
+			ctx.rect(this.focusedBlock.i*this.unitWidth,this.gameheight-(this.focusedBlock.j+1)*this.unitHeight,this.unitWidth,this.unitHeight);
+			ctx.fill();
+			ctx.stroke();
+			ctx.closePath();
+		}
 	}
 
 	update(){
@@ -193,8 +194,8 @@ class Game{
 
 
 	randomColor(COLORS){
-	return COLORS[Math.floor(Math.random()*this.noOfColors)];
-}
+		return COLORS[Math.floor(Math.random()*this.noOfColors)];
+	}
 }
 
 class Block{	//Single block object
@@ -203,9 +204,6 @@ class Block{	//Single block object
 		this.color = color;
 		this.markedForRemoval = false;
 		this.opacity = 1;
-		this.isFocused = false;
-		//this.focusedBlock_I = -1;	//value -1 if no block in focus
-		//this.focusedBlock_J = -1;	//value -1 if no block in focus
 
 		//There is no position parameter as it keeps changing. So, it is defined bt the blocks array
 
@@ -221,12 +219,14 @@ class Block{	//Single block object
 		(i0,j0)  (i1,j0)  (i2,j0)*/
 		ctx.beginPath();
 		ctx.fillStyle = this.color + this.opacity+")";
+		ctx.strokeStyle = "rgba(0,0,0,"+this.opacity+")";
 		ctx.lineWidth = 1;
 		//ctx.rect(i*this.game.unitWidth,(this.game.gameheight - (j+1)*this.game.unitHeight),this.game.unitWidth,this.game.unitHeight);
 		ctx.rect(i*this.game.unitWidth,this.currentPosY,this.game.unitWidth,this.game.unitHeight);
 		ctx.fill();
 		ctx.stroke();
 		ctx.closePath();
+
 	}
 
 	fallUpdate(i,j){
@@ -243,7 +243,7 @@ class Block{	//Single block object
 
 	removalUpdate(i,j){
 		if(this.opacity>0){
-			this.opacity -= 0.02;
+			this.opacity -= 0.03;
 			return false;
 		}
 		else return true;
@@ -326,44 +326,23 @@ class MatchesDetection{
 	}
 }
 
+class InputHandler{
+	constructor(game){
+		this.game = game;
+		canvas.addEventListener('mousemove',e=>{
+			let i1 = parseInt(e.offsetX/this.game.unitWidth);
+			let j1 = parseInt((this.game.gameheight-e.offsetY)/this.game.unitHeight);
+			this.game.focusedBlock = {i:i1,j:j1};
+		});
 
+		canvas.addEventListener('mouseleave', e=>{
+			this.game.focusedBlock = null;
+		});
 
-
-/*
-function blockFocused(e){
-	let i1 = parseInt(e.offsetX/unitWidth);
-	let j1 = parseInt((GAMEHEIGHT-e.offsetY)/unitHeight);
-	//console.log(e.offsetX+","+e.offsetY);
-	if(focusedBlock_I!=i1 || focusedBlock_J!=j1)
-	{
-		if(focusedBlock_I!=-1){
-			// Redraw OLD block as it is out of focus
-			drawBlock(focusedBlock_I,focusedBlock_J);
-		//	drawMapp(focusedBlock_I,focusedBlock_J);
 	}
-		//focus the NEW block
-		focusedBlock_I = i1;
-		focusedBlock_J = j1;
-		drawBlockFocus(focusedBlock_I,focusedBlock_J);	
-	}
-
 }
 
-function blockUnfocused(e){
-	drawBlock(focusedBlock_I,focusedBlock_J);
-	//drawMapp(focusedBlock_I,focusedBlock_J);
-	focusedBlock_I = -1,focusedBlock_J = -1;
-}
 
-function drawBlockFocus(i,j){
-	ctx.beginPath();
-	ctx.fillStyle = "rgba(0,0,0,0.5)";
-	ctx.rect(i*unitWidth,(GAMEHEIGHT - (j+1)*unitHeight),unitWidth,unitHeight);
-	ctx.fill();
-	ctx.stroke();
-	ctx.closePath();
-}
-*/
 let stopper;
 let game = new Game(GAMEWIDTH,GAMEHEIGHT);
 requestAnimationFrame(animate);
@@ -373,14 +352,13 @@ function animate(){
 	game.draw(ctx);
 	game.update();
 	stopper = requestAnimationFrame(animate);
-	//console.log("HIi");
+	
 }
 
 
 create.addEventListener('click',()=>{
 	cancelAnimationFrame(stopper);
 	game = new Game(GAMEWIDTH,GAMEHEIGHT, parseInt(rows.value), parseInt(colms.value), parseInt(colors.value));
-
 	requestAnimationFrame(animate);
 });
 </script>
