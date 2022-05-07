@@ -14,7 +14,7 @@
 	<!--	<span style="position: absolute;line-height: 13px;">
 			<br>j9<br><br><br>j8<br><br><br>j7<br><br><br>j6<br><br><br>j5<br><br><br>j4<br><br><br>j3<br><br><br><br>j2<br><br><br>j1<br><br><br>j0
 		</span>
-		<span id="text" style="float: right;background: grey; width: 38%;">?</span>
+		<span id="textBox" style="float: right;background: grey; width: 38%;">?</span>
 	-->
 	<hr>
 	Rows: <input type="number" id="rows" placeholder="12" style="width: 60px;">
@@ -27,10 +27,7 @@
 	<script type="text/javascript">
 
 
-//Declaration
-let canvas = document.querySelector("#canvas");
-let textBox = document.querySelector("#text");
-let ctx = canvas.getContext("2d");
+
 
 
 
@@ -49,7 +46,6 @@ const BLOCKSSTATE = {
 	DISAPPEARED: 3,
 	IDLE: 4
 }
-
 //NOT USED yet
 const GAMESTATE = {
 	RUNNING: 0,
@@ -83,7 +79,7 @@ class Game{
 		for(let i = 0;i<this.noOfCols;i++) this.blocks[i] = [];
 			this.fillBlocks();
 		this.matchesDetector = new MatchesDetection(this);
-		new InputHandler(this);
+		this.inputHandler = new InputHandler(this);
 	}
 
 	draw(ctx){
@@ -143,15 +139,15 @@ class Game{
 			});
 
 			if(this.blocksstate == BLOCKSSTATE.DISAPPEARED){
-				console.log("when is this called");
-				this.removeBlocks();
-				console.log(this.blocks);
-				this.fillBlocks();
-				console.log(this.blocks);
-				this.blocksstate = BLOCKSSTATE.FALLING;
-			}
+			//	console.log("when is this called");
+			this.removeBlocks();
+			//	console.log(this.blocks);
+			this.fillBlocks();
+			//	console.log(this.blocks);
+			this.blocksstate = BLOCKSSTATE.FALLING;
 		}
 	}
+}
 
 	removeBlocks(){	//remove blocks from array
 		for(let i = 0;i<this.noOfCols;i++){
@@ -264,11 +260,11 @@ class MatchesDetection{
 				let lenV = this.VerMatchLen(i,j);
 				if(lenH>=3){
 					this.Matches.push({I: i,J: j,len: lenH, dir: "H"});
-					console.log(JSON.stringify(this.Matches[this.Matches.length-1]));
+					//console.log(JSON.stringify(this.Matches[this.Matches.length-1]));
 				}
 				if(lenV>=3){
 					this.Matches.push({I: i,J: j,len: lenV, dir: "V"});
-					console.log(JSON.stringify(this.Matches[this.Matches.length-1]));
+					//console.log(JSON.stringify(this.Matches[this.Matches.length-1]));
 				}
 
 
@@ -327,22 +323,28 @@ class MatchesDetection{
 }
 
 class InputHandler{
-	constructor(game){
-		this.game = game;
-		canvas.addEventListener('mousemove',e=>{
+
+	constructor(game){	
+		canvas.game = game;
+		canvas.addEventListener('mousemove',this.focusBlock);
+
+		canvas.addEventListener('mousedown',e=>{
+			canvas.removeEventListener("mousemove",this.focusBlock);
+		});
+		canvas.addEventListener('mouseup',e=>{
+			canvas.addEventListener('mousemove',this.focusBlock);
+		});
+	}
+
+	focusBlock(e){
 			let i1 = parseInt(e.offsetX/this.game.unitWidth);
 			let j1 = parseInt((this.game.gameheight-e.offsetY)/this.game.unitHeight);
 			this.game.focusedBlock = {i:i1,j:j1};
-		});
-
-		canvas.addEventListener('mouseleave', e=>{
-			this.game.focusedBlock = null;
-		});
-
+			//console.log(`${i1}, ${j1}`);
 	}
 }
 
-
+let ctx = canvas.getContext("2d");
 let stopper;
 let game = new Game(GAMEWIDTH,GAMEHEIGHT);
 requestAnimationFrame(animate);
@@ -352,10 +354,9 @@ function animate(){
 	game.draw(ctx);
 	game.update();
 	stopper = requestAnimationFrame(animate);
-	
 }
 
-
+//Input Handler for creating custom grid
 create.addEventListener('click',()=>{
 	cancelAnimationFrame(stopper);
 	game = new Game(GAMEWIDTH,GAMEHEIGHT, parseInt(rows.value), parseInt(colms.value), parseInt(colors.value));
