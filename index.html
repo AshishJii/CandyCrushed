@@ -1,6 +1,9 @@
 <!--
-	This is a fork of original candy v1-->
-
+	This is a fork of original candy v1. The original coud be forked for many other applications-->
+<!--
+	This is a shitty code
+Refactor this program into using a single dimension array of blocks object with position inside them.
+-->
 	<!DOCTYPE html>
 	<html>
 	<head>
@@ -23,6 +26,9 @@
 	Number of Colors: <input type="number" id="colors" placeholder="1-5" style="width: 60px;">
 	<br>
 	<button id="create">Create</button>
+	<h2> Version 0.2-alpha</h2>
+	<p> Shortcoming: Position is stored as index of two dimension Array.<br>
+	It causes complexities in creating animation. Will refactor in version 0.3</p>
 
 	<script type="text/javascript">
 
@@ -117,6 +123,7 @@ class Game{
 		}
 
 		if(this.blocksstate==BLOCKSSTATE.SETTLED){
+			//	console.log("Block Settled");
 			let areMatchesPresent = this.matchesDetector.tripletDetection();
 			if(areMatchesPresent){
 				this.matchesDetector.markForRemoval();
@@ -139,15 +146,15 @@ class Game{
 			});
 
 			if(this.blocksstate == BLOCKSSTATE.DISAPPEARED){
-			//	console.log("when is this called");
-			this.removeBlocks();
-			//	console.log(this.blocks);
-			this.fillBlocks();
-			//	console.log(this.blocks);
-			this.blocksstate = BLOCKSSTATE.FALLING;
+				//	console.log("when is this called");
+				this.removeBlocks();
+				//	console.log(this.blocks);
+				this.fillBlocks();
+				//	console.log(this.blocks);
+				this.blocksstate = BLOCKSSTATE.FALLING;
+			}
 		}
 	}
-}
 
 	removeBlocks(){	//remove blocks from array
 		for(let i = 0;i<this.noOfCols;i++){
@@ -164,6 +171,35 @@ class Game{
 				this.blocks[i][j] = new Block(this, col, j-blocklen);
 			}
 		}
+	}
+
+	swipeBlock(c, f){
+		//c: currentBlock 
+		//f: focusedBlock
+
+		// rough logic.
+		//better logic needed
+		let temp = this.blocks[c.i][c.j];
+		this.blocks[c.i][c.j] = this.blocks[f.i][f.j];
+		this.blocks[f.i][f.j] = temp;
+
+		this.blocks[c.i][c.j].currentPosY = this.gameheight - (c.j+1)*this.unitHeight;
+		this.blocks[f.i][f.j].currentPosY = this.gameheight - (f.j+1)*this.unitHeight;
+
+		
+
+		let areMatchesPresent = this.matchesDetector.tripletDetection();
+			if(areMatchesPresent){
+				this.blocksstate=BLOCKSSTATE.SETTLED;
+			}
+			else{
+				let temp = this.blocks[c.i][c.j];
+				this.blocks[c.i][c.j] = this.blocks[f.i][f.j];
+				this.blocks[f.i][f.j] = temp;
+
+				this.blocks[c.i][c.j].currentPosY = this.gameheight - (c.j+1)*this.unitHeight;
+				this.blocks[f.i][f.j].currentPosY = this.gameheight - (f.j+1)*this.unitHeight;
+			}
 	}
 
 	drawLines(ctx){
@@ -222,14 +258,13 @@ class Block{	//Single block object
 		ctx.fill();
 		ctx.stroke();
 		ctx.closePath();
-
 	}
 
 	fallUpdate(i,j){
 		
 		let finalPosY = this.game.gameheight - (j+1)*this.game.unitHeight;
 		if(finalPosY>this.currentPosY){
-			this.currentPosY +=5;
+			this.currentPosY +=8;
 			if(finalPosY<this.currentPosY) this.currentPosY = finalPosY;
 			return true;
 		}
@@ -239,7 +274,7 @@ class Block{	//Single block object
 
 	removalUpdate(i,j){
 		if(this.opacity>0){
-			this.opacity -= 0.03;
+			this.opacity -= 0.06;
 			return false;
 		}
 		else return true;
@@ -292,7 +327,6 @@ class MatchesDetection{
 		});
 	}
 
-
 	HorMatchLen(i,j){
 		if(i!=0 && this.game.blocks[i-1][j].color == this.game.blocks[i][j].color)
 		return null; //block is already in a previous triplet/quadr/tetraplet
@@ -323,24 +357,42 @@ class MatchesDetection{
 }
 
 class InputHandler{
-
 	constructor(game){	
-		canvas.game = game;
+		this.game = game;
+		this.focused = {i:0,j:0};
+		this.current = {i:0,j:0};
+
+		//passing InputHandler obj as canvas obj property
+		canvas.iH = this;	//iH: inputHandler
+
 		canvas.addEventListener('mousemove',this.focusBlock);
 
 		canvas.addEventListener('mousedown',e=>{
 			canvas.removeEventListener("mousemove",this.focusBlock);
+			canvas.addEventListener("mousemove",this.currentBlock);
 		});
 		canvas.addEventListener('mouseup',e=>{
 			canvas.addEventListener('mousemove',this.focusBlock);
+			canvas.removeEventListener("mousemove",this.currentBlock);
 		});
 	}
 
 	focusBlock(e){
-			let i1 = parseInt(e.offsetX/this.game.unitWidth);
-			let j1 = parseInt((this.game.gameheight-e.offsetY)/this.game.unitHeight);
-			this.game.focusedBlock = {i:i1,j:j1};
-			//console.log(`${i1}, ${j1}`);
+		this.iH.focused.i = parseInt(e.offsetX/this.iH.game.unitWidth);
+		this.iH.focused.j = parseInt((this.iH.game.gameheight-e.offsetY)/this.iH.game.unitHeight);
+		this.iH.game.focusedBlock = {i:this.iH.focused.i,j:this.iH.focused.j};
+	}
+
+	currentBlock(e){
+		//temporary code 
+		//detects change in block coordinate an replaces immediately
+		//change it to detect the displacemnt from original and create a theshold
+		this.iH.current.i= parseInt(e.offsetX/this.iH.game.unitWidth);
+		this.iH.current.j = parseInt((this.iH.game.gameheight-e.offsetY)/this.iH.game.unitHeight);
+		if(this.iH.current.i != this.iH.focused.i || this.iH.current.j != this.iH.focused.j){
+			this.iH.game.swipeBlock(this.iH.current, this.iH.focused);
+			canvas.removeEventListener("mousemove",this.iH.currentBlock);
+		}
 	}
 }
 
