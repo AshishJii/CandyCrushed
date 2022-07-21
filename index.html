@@ -380,9 +380,9 @@ class InputHandler{
 
 		if(this.is_touch_enabled()){
 			//Touch events
-			canvas.addEventListener('touchstart',this.focusBlock);
-			canvas.addEventListener("touchmove",this.currentBlock);
-			canvas.addEventListener('touchend',this.unfocusBlock);
+			canvas.addEventListener('touchstart',this.touch_focusBlock);
+			canvas.addEventListener("touchmove",this.touch_currentBlock);
+			canvas.addEventListener('touchend',this.touch_unfocusBlock);
 			console.log("touch screen");
 		}
 		else{
@@ -444,7 +444,6 @@ class InputHandler{
 		this.iH.current.j = parseInt((this.iH.game.gameheight-e.offsetY)/this.iH.game.unitHeight);
 		if(this.iH.current.i != this.iH.focused.i || this.iH.current.j != this.iH.focused.j){
 			this.iH.game.swipeBlock(this.iH.current, this.iH.focused);
-			canvas.removeEventListener("mousemove",this.iH.currentBlock);
 		}
 	}
 
